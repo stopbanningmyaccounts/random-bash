@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 
 read -p 'enter file name' x 
+if [ -e "$x" ]; then
+echo "file already exists use different name" >&2
+exit 1
+else
 
 touch $x
 chmod +x $x
 
 echo "#!/usr/bin/env bash" >> $x
+echo "$x sucessfully created"
+fi
 
-#this creates a executable bash file 
+#this creates a executable bash file(only 1 file at a time tho) 
