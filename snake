@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# keys are: arrow keys + WASD
+# Needs bash 5+ need to upgrade for mac or older linux
+
+W=30; H=15
+START_DELAY=150    
+MIN_DELAY=45       
+FOOD_SPEEDUP=6     
+TIME_SPEEDUP=4      
+
+declare -A occ                     
+declare -a sx=(15 14 13) sy=(7 7 7)  
+dx=1; dy=0                         
+ndx=1; ndy=0                       
+score=0; fx=0; fy=0; msg=""
+delay=$START_DELAY
+
+for i in "${!sx[@]}"; do occ["${sx[i]},${sy[i]}"]=1; done
+
+now_ms() { local t=${EPOCHREALTIME/[.,]/}; now=$(( t / 1000 )); }
+
+cleanup() {
+    tput cnorm
+    stty echo
+    # ts code ruined everything twice i hate this :(
+    tput cup $(( H + 3 )) 0
+    echo
+}
+trap cleanup EXIT
+
+place_food() {
+    local free=() x y
+    for (( y=0; y<H; y++ )); do
+        for (( x=0; x<W; x++ )); do
+            [[ -z ${occ["$x,$y"]} ]] && free+=("$x,$y")
+        done
+    done
+    (( ${#free[@]} == 0 )) && return 1
+    local pick=${free[RANDOM % ${#free[@]}]}
+    fx=${pick%,*}; fy=${pick#*,}
+    return 0
+}
+
+draw() {
+    local out line border x y
+    printf -v border '%*s' "$W" ''
+    border="+${border// /-}+"
+    out="$border"$'\n'
+    for (( y=0; y<H; y++ )); do
+        line="|"
+        for (( x=0; x<W; x++ )); do
+            if (( x == sx[0] && y == sy[0] )); then line+="@"
+            elif [[ -n ${occ["$x,$y"]} ]];     then line+="o"
+            elif (( x == fx && y == fy ));     then line+="*"
+            else line+=" "
+            fi
+        done
+        out+="$line|"$'\n'
+    done
+    out+="$border"$'\n'
+    out+="Score: $score   are you a sigma?   (arrows/WASD, Q quits)    "$'\n'
+    tput cup 0 0
+    printf "%s" "$out"
+}
+
+stty -echo
+tput civis
+clear
+place_food
+now_ms; start=$now
+
+while true; do
+    now_ms
+    delay=$(( START_DELAY - score * FOOD_SPEEDUP - ((now - start) / 10000) * TIME_SPEEDUP ))
+    (( delay < MIN_DELAY )) && delay=$MIN_DELAY
+
+    draw
+    tick_end=$(( now + delay ))
+
+    # man i hate ticks.
+    while true; do
+        now_ms
+        remaining=$(( tick_end - now ))
+        (( remaining <= 0 )) && break
+        printf -v t '0.%03d' "$remaining"
+
+        key=""
+        if ! read -s -n 1 -t "$t" key; then
+            continue
+        fi
+
+        if [[ $key == $'\e' ]]; then          
+            read -s -n 2 -t 0.05 rest || rest=""
+            key+=$rest
+        fi
+
+        case "$key" in
+            w|W|$'\e[A') (( dy != 1 ))  && { ndx=0;  ndy=-1; } ;;
+            s|S|$'\e[B') (( dy != -1 )) && { ndx=0;  ndy=1;  } ;;
+            d|D|$'\e[C') (( dx != -1 )) && { ndx=1;  ndy=0;  } ;;
+            a|A|$'\e[D') (( dx != 1 ))  && { ndx=-1; ndy=0;  } ;;
+            q|Q) msg="Quit."; break 2 ;;
+        esac
+    done
+
+    dx=$ndx; dy=$ndy
+    nx=$(( sx[0] + dx )); ny=$(( sy[0] + dy ))
+
+    if (( nx < 0 || nx >= W || ny < 0 || ny >= H )); then
+        msg="You hit the wall, are you blind mate?"; break
+    fi
+
+    ate=0
+    (( nx == fx && ny == fy )) && ate=1
+
+    if (( ! ate )); then                      
+        last=$(( ${#sx[@]} - 1 ))
+        unset "occ[${sx[last]},${sy[last]}]"
+        sx=("${sx[@]:0:last}"); sy=("${sy[@]:0:last}")
+    fi
+
+    if [[ -n ${occ["$nx,$ny"]} ]]; then
+        msg="You ate yourself!"; break
+    fi
+
+    sx=("$nx" "${sx[@]}"); sy=("$ny" "${sy[@]}")
+    occ["$nx,$ny"]=1
+
+    if (( ate )); then
+        (( score++ ))
+        place_food || { msg="You hacking"; break; }
+    fi
+done
+
+echo "$msg haha i have gotten better than: $score you suck"
+
+# who even does this in bash
