@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-read -p 'enter file name' x
+read -p 'enter file name' x 
 
 touch $x
 chmod +x $x
 
 echo "#!/usr/bin/env bash" >> $x
 
+#this creates a executable bash file 
