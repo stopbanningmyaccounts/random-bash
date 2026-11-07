@@ -1,2 +1,2 @@
 # random-bash
-a bunch of random and slightly useful bash tools
+a bunch of random and slightly useful bash tools or something random idk
