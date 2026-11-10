@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-read -p 'enter file name' x 
+if [[ -n $1 ]]; then
+x=$1
+else
+read -p 'enter file name' x
+fi
 if [ -e "$x" ]; then
 echo "file already exists use different name" >&2
 exit 1
