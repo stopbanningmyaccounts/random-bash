@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+ 
+printf '\033[?1049h'
+stty -echo
+printf '\033[?25l'
+printf '\e7'
+for (( i=0;i<100;i++ )); do
+for (( i=0; i<100;i++ )); do
+	printf '\e[%d;%dH' $((0+i)) $((60-i))
+printf '\e[38;5;1m YOU ARE AN IDIOT \e[0m \n'
+	printf '\e[%d;%dH' $((0+i)) $((0+i))
+	printf '\e[38;5;1m YOU ARE AN IDIOT \e[0m \n'
+	sleep 1
+done
+done
+
+printf '\e8'
