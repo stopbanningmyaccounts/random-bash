@@ -1,0 +1,16 @@
+python #i fucking hate python my programming language is better id rather use assembly than this
+python-pip
+nodejs
+npm
+rustup
+go
+docker
+docker-compose
+make
+cmake
+clang
+lldb
+gdb
+shellcheck
+tmux
+neovim

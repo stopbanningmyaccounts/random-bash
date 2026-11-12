@@ -1,0 +1,11 @@
+xorg-server
+xorg-xinit
+xorg-xsetroot
+i3-wm
+i3status
+i3lock
+dmenu
+xterm
+# Uncomment exactly one browser:
+# firefox
+# chromium  #imagine using chromium what a loser!
