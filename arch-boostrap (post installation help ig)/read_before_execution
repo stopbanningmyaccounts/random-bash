@@ -1,1 +1,27 @@
+# arch-bootstrap
 
+Interactive post-install setup for Arch Linux. Not a disk installer.
+
+    ./bootstrap.sh -n      # dry run first
+    ./bootstrap.sh         # the real thing
+
+Run as a normal user with sudo, not root.
+
+Flags: -p NAME profile · -n dry run · -y non-interactive (needs -p) · -l list · -h help.
+Env: GIT_NAME, GIT_EMAIL.
+
+Profiles: minimal (CLI), lightweight (i3 + zram), dev (toolchains + docker).
+
+Steps: upgrade, packages, aur, dotfiles, services, zram, git.
+With -y all steps run, but zram only if the profile sets ZRAM=1.
+
+idk why i made this but i hope it is helpful although i dont find it of anyusewhatsoever
+ 
+feel free to edit and add your own profiles and improve my bloated code :)
+
+Caveats:
+- Dotfiles symlink into this repo; don't move it.
+- NetworkManager is enabled by profiles; remove if you use something else.
+- dev profile: run `sudo usermod -aG docker $USER` then log out/in.
+- make your own dotfiles dont be a npc
+- doesnt account for your desktop environment so configure it yourself
