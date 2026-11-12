@@ -13,5 +13,5 @@ printf '\e[38;5;1m YOU ARE AN IDIOT \e[0m \n'
 	sleep 1
 done
 done
-
 printf '\e8'
+#run at own risk of losing current work in terminal and ctrl+c to kill
