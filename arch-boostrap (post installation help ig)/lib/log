@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+if [[ -t 2 ]]; then
+  C_RED=$'\e[31m'; C_GREEN=$'\e[32m'; C_YELLOW=$'\e[33m'; C_RESET=$'\e[0m'
+else C_RED=""; C_GREEN=""; C_YELLOW=""; C_RESET=""; fi
+info() { printf '%s==>%s %s\n' "$C_GREEN"  "$C_RESET" "$*" >&2; }
+warn() { printf '%s==> WARNING:%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
+die()  { printf '%s==> ERROR:%s %s\n' "$C_RED"    "$C_RESET" "$*" >&2; exit 1; }

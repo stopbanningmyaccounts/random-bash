@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+have_fzf() { command -v fzf >/dev/null 2>&1; }
+ui_choose() {
+  local p=$1; shift
+  if have_fzf; then printf '%s\n' "$@" | fzf --prompt="$p> " --height=40% --reverse
+  else local PS3="$p (number): " item; select item in "$@"; do
+    [[ -n $item ]] && { printf '%s\n' "$item"; return 0; }; done; return 1; fi
+}
+ui_multi() {
+  local p=$1; shift; local items=("$@")
+  if have_fzf; then
+    printf '%s\n' "${items[@]}" | fzf --multi --reverse --height=50% --prompt="$p> " \
+      --header="Tab = toggle, Enter = confirm (all preselected)" --bind 'start:select-all'
+  else
+    local i skip=" " n
+    { echo "$p (all selected):"; for i in "${!items[@]}"; do printf '  %d) %s\n' "$((i+1))" "${items[i]}"; done; } >&2
+    read -r -p "Numbers to remove, or Enter to keep all: " n </dev/tty
+    for i in $n; do skip+="$i "; done
+    for i in "${!items[@]}"; do [[ $skip == *" $((i+1)) "* ]] || printf '%s\n' "${items[i]}"; done
+  fi
+}
+ui_confirm() { local q=$1 d=${2:-n} h a
+  [[ $d == y ]] && h="[Y/n]" || h="[y/N]"
+  read -rp "$q $h " a </dev/tty; a=${a:-$d}; [[ $a == [yY]* ]]; }
+ui_input() { local a; read -rp "$1${2:+ [$2]}: " a </dev/tty; printf '%s\n' "${a:-$2}"; } #shoutout to ysap for this 
+

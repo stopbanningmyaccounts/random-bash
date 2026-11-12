@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+run() {
+  if (( ${DRY_RUN:-0} )); then printf '[dry-run] '; printf '%q ' "$@"; echo
+  else "$@"; fi
+}
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required: $1"; }
+#idk why it keeps fucking up if i modify anything in this 

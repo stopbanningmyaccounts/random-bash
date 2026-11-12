@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+read_list() { sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$ROOT/packages/$1"; }
+collect_packages() {
+  local l; PKGS=()
+  for l in "$@"; do
+    [[ -f $ROOT/packages/$l ]] || die "Missing package list: packages/$l"
+    mapfile -t -O "${#PKGS[@]}" PKGS < <(read_list "$l")
+  done
+  (( ${#PKGS[@]} )) && mapfile -t PKGS < <(printf '%s\n' "${PKGS[@]}" | awk '!seen[$0]++')
+  return 0
+}
+install_packages() {
+  collect_packages "$@"
+  (( ${#PKGS[@]} )) || { info "No packages for this profile."; return 0; }
+  info "Installing ${#PKGS[@]} packages with pacman"
+  run sudo pacman -S --needed --noconfirm "${PKGS[@]}"
+}
+ensure_aur_helper() {
+  command -v paru >/dev/null 2>&1 && return 0
+  info "Installing paru (AUR helper)"
+  run sudo pacman -S --needed --noconfirm base-devel git
+  (( DRY_RUN )) && { info "[dry-run] would build paru-bin with makepkg"; return 0; }
+  local t; t=$(mktemp -d)
+  git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$t/paru"
+  ( cd "$t/paru" && makepkg -si --noconfirm )
+  rm -rf "$t"
+}
+install_aur() {
+  collect_packages "$@"
+  (( ${#PKGS[@]} )) || { info "No AUR packages for this profile."; return 0; }
+  ensure_aur_helper
+  info "Installing ${#PKGS[@]} AUR packages with paru"
+  run paru -S --needed --noconfirm "${PKGS[@]}" #be a man and dont use this
+}
+enable_services() {
+  (( $# )) || { info "No services to enable."; return 0; }
+  local s; for s in "$@"; do info "Enabling $s"; run sudo systemctl enable --now "$s"; done
+}
+link_dotfiles() {
+  local saved f target bak n; local -a entries=()
+  saved=$(shopt -p nullglob dotglob); shopt -s nullglob dotglob
+  entries=("$ROOT"/dotfiles/*); eval "$saved"
+  (( ${#entries[@]} )) || { info "No dotfiles to link."; return 0; }
+  for f in "${entries[@]}"; do
+    [[ $(basename "$f") == .gitkeep ]] && continue
+    target="$HOME/$(basename "$f")"
+    [[ -L $target && $(readlink "$target") == "$f" ]] && { info "Already linked: $target"; continue; }
+    if [[ -e $target || -L $target ]]; then
+      bak="$target.bak.$(date +%Y%m%d-%H%M%S)"; n=1
+      while [[ -e $bak || -L $bak ]]; do bak="$target.bak.$(date +%Y%m%d-%H%M%S).$n"; n=$((n+1)); done
+      info "Backing up $target -> $bak"; run mv "$target" "$bak"
+    fi
+    info "Linking $target -> $f"; run ln -s "$f" "$target"
+  done
+}
