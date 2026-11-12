@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#the above shebang is the optimal shebang btw
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$ROOT/lib/log.sh"; source "$ROOT/lib/utils.sh"
+source "$ROOT/lib/pkg.sh"; source "$ROOT/lib/menu.sh"
+
+DRY_RUN=0 ASSUME_YES=0 PROFILE="" CHOSEN=() GIT_NAME="" GIT_EMAIL=""
+COMPONENTS=(
+  "upgrade   Full system upgrade first"
+  "packages  Install packages from the profile's lists"
+  "aur       Install AUR helper (paru) and AUR packages"
+  "dotfiles  Symlink dotfiles into \$HOME"
+  "services  Enable systemd services"
+  "zram      Set up compressed swap in RAM"
+  "git       Configure git name and email"
+)
+has_step() { local s; for s in "${CHOSEN[@]}"; do [[ $s == "$1" ]] && return 0; done; return 1; }
+list_profiles() { local f; for f in "$ROOT"/profiles/*.conf; do [[ -e $f ]] || continue; basename "$f" .conf; done; }
+usage() { cat <<U
+Usage: $0 [-p profile] [-n] [-y] [-l] [-h]
+  -p NAME   profile (skips menu)
+  -n        dry run
+  -y        non-interactive (needs -p)
+  -l        list profiles
+  -h        help
+Env: GIT_NAME, GIT_EMAIL
+U
+}
+while getopts "p:nyhl" o; do case $o in
+  p) PROFILE=$OPTARG;; n) DRY_RUN=1;; y) ASSUME_YES=1;; l) list_profiles; exit 0;;
+  h) usage; exit 0;; *) usage; exit 1;; esac; done
+shift $((OPTIND-1)); (( $# == 0 )) || die "Unexpected args: $*"
+export DRY_RUN
+if ! [[ -t 0 && -t 1 ]]; then (( ASSUME_YES )) || warn "No terminal; running non-interactively."; ASSUME_YES=1; fi
+
+interactive_setup() {
+  local p=(); mapfile -t p < <(list_profiles)
+  (( ${#p[@]} )) || die "No profiles found"
+  [[ -n $PROFILE ]] || { PROFILE=$(ui_choose "Profile" "${p[@]}") || die "No profile selected"; }
+  [[ -f $ROOT/profiles/$PROFILE.conf ]] || die "Unknown profile: $PROFILE (use -l)"
+  mapfile -t CHOSEN < <(ui_multi "Components" "${COMPONENTS[@]}" | awk '{print $1}')
+  (( ${#CHOSEN[@]} )) || die "Nothing selected"
+  if has_step git; then
+    GIT_NAME=$(ui_input "Git name" "$(git config --global user.name 2>/dev/null || true)")
+    GIT_EMAIL=$(ui_input "Git email" "$(git config --global user.email 2>/dev/null || true)")
+  fi
+  { echo; echo "Summary"; echo "  Profile:    $PROFILE"; echo "  Components: ${CHOSEN[*]}"
+    (( DRY_RUN )) && echo "  Mode:       dry run"; echo; } >&2
+  ui_confirm "Proceed?" y || die "Aborted." #pretty controversial eh?
+}
+noninteractive_setup() {
+  [[ -n $PROFILE ]] || die "Non-interactive mode needs -p PROFILE"
+  [[ -f $ROOT/profiles/$PROFILE.conf ]] || die "Unknown profile: $PROFILE"
+  local c; CHOSEN=(); for c in "${COMPONENTS[@]}"; do CHOSEN+=("${c%% *}"); done
+  GIT_NAME=${GIT_NAME:-$(git config --global user.name 2>/dev/null || true)}
+  GIT_EMAIL=${GIT_EMAIL:-$(git config --global user.email 2>/dev/null || true)}
+  (( DRY_RUN )) && info "Dry run: profile=$PROFILE components=${CHOSEN[*]}"
+}
+setup_git() {
+  if [[ -z $GIT_NAME && -z $GIT_EMAIL ]]; then
+    warn "No git name/email; skipping. Set GIT_NAME/GIT_EMAIL and re-run."; return 0
+  fi
+  [[ -n $GIT_NAME ]]  && run git config --global user.name "$GIT_NAME"
+  [[ -n $GIT_EMAIL ]] && run git config --global user.email "$GIT_EMAIL"
+}
+setup_zram() {
+  run sudo pacman -S --needed --noconfirm zram-generator
+  if (( DRY_RUN )); then
+    info "[dry-run] would write /etc/systemd/zram-generator.conf"
+    info "[dry-run] systemctl daemon-reload && systemctl start systemd-zram-setup@zram0.service"
+    return 0
+  fi
+  printf '[zram0]\nzram-size = ram / 2\ncompression-algorithm = zstd\n' \
+    | sudo tee /etc/systemd/zram-generator.conf >/dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl start systemd-zram-setup@zram0.service
+}
+main() {
+  [[ $EUID -ne 0 ]] || die "Run as a normal user; sudo is used when needed."
+  command -v pacman >/dev/null 2>&1 || die "pacman not found; targets Arch Linux."
+  command -v sudo   >/dev/null 2>&1 || warn "sudo not found; root steps will fail."
+  (( ASSUME_YES )) && noninteractive_setup || interactive_setup
+  PACKAGE_LISTS=() AUR_LISTS=() SERVICES=() ZRAM=0
+  source "$ROOT/profiles/$PROFILE.conf"
+  info "Applying profile: $PROFILE"
+  if has_step upgrade;  then run sudo pacman -Syu --noconfirm; fi
+  if has_step packages; then install_packages "${PACKAGE_LISTS[@]}"; fi
+  if has_step aur;      then install_aur "${AUR_LISTS[@]}"; fi
+  if has_step dotfiles; then link_dotfiles; fi
+  if has_step services; then enable_services "${SERVICES[@]}"; fi
+  if has_step zram; then
+    if (( ! ASSUME_YES )) || [[ ${ZRAM:-0} -eq 1 ]]; then setup_zram
+    else info "Skipping zram: profile ZRAM=0 and -y in effect."; fi
+  fi
+  if has_step git; then setup_git; fi
+  info "Done." #might crash gl :)
+}
+main "$@"
