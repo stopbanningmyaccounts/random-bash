@@ -2,8 +2,8 @@
 
 Interactive post-install setup for Arch Linux. Not a disk installer.
 
-    ./bootstrap.sh -n      # dry run first
-    ./bootstrap.sh         # the real thing
+    
+   sudo ./bootstrap        #just run it totally safe 
 
 Run as a normal user with sudo, not root.
 
