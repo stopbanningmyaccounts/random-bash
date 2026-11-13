@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#just gives info about the files and items of whatever directory you run it in
 
 d() { echo "executable files are:"
 	for f in *; do
