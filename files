@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+d() { echo "executable files are:"
+	for f in *; do
+		if [[ -f $f ]]; then
+			if [[ -x $f ]]; then
+				echo "- $f "
+				ok+=($f)
+			fi
+		fi
+	done
+}
+size() {
+	for tuff in *; do
+		boss=$(stat -c %s "$tuff")
+		p+="$boss"
+	done
+	hero=$(du -ch * | tail -n 1 | cut -f 1)
+echo "total size = $hero"
+read -p "do you want to see in bits (y/n)" m
+if [[ $m == "y" ]]; then
+	echo "it is $p in bits"
+fi
+}
+
+a=$(ls -l | wc -l)
+bet=$(find . -type f | wc -l)
+echo "you have $a items in main dir and $bet files"
+zet=$(ls -1 | cut -c 1 | sort | uniq -c | sort -nr)
+echo "frequency is:
+$zet"
+b=$(find . -name '*.txt' -print)
+for larp in $b; do
+	monk+=($larp)
+	if [[ -n $b ]]; then
+		echo "> $b are your .txt and there are "${#monk[@]}" of them"
+	fi
+done
+e=$(find . -type d)
+if [[ -n $e ]]; then
+	echo "$e are your directories (if it only shows '.' then it means no dir)"
+fi
+size
+d
+echo "there are ${#ok[@]} of em"
+	
+read -p "do you wish to remove the info (y/n)" z
+if [[ $z == y ]]; then
+	clear 
+else
+	exit
+fi
